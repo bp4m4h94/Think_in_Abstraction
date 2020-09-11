@@ -176,20 +176,14 @@
       mounted () {
         let url = "https://opendata.cwb.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=CWB-71C11495-3B87-4B89-B6AC-275E7F4C3E87&elementName=Wx"
 
-        // var VSCODE_CORS_URL = {
-        //   key: "http://localhost:1337",
-        //   proxy: url
-        //   }
-
-
-        // axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*'
         axios
           .get(url)
           .then(
             response => (this.locations = response.data.records.location)
             )
-          .catch(function (error) { // 请求失败处理
+          .catch(function (error) { // request fail
             console.log(error);
+            alert(error);
           });
       },
       methods: {
