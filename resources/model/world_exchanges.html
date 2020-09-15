@@ -83,7 +83,7 @@
 
   <div id="app">
     <template>
-      <el-select v-model="value" placeholder="請選擇匯率基準">
+      <el-select v-model="baseValue" placeholder="請選擇匯率基準" @change='ready'>
         <el-option
           v-for="item in options"
           :key="item.value"
@@ -93,7 +93,10 @@
         </el-option>
       </el-select>
     </template>
-    </div>
+      <exchange-map></exchange-map>
+
+  </div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script src="https://unpkg.com/element-ui/lib/index.js"></script>
@@ -102,165 +105,200 @@
 <script src="https://d3js.org/queue.v1.min.js"></script>
 <script src="https://d3js.org/topojson.v1.min.js"></script>
 <script src="./js/d3-tip.js"></script>
-<script>
-var format = d3.format(",");
-// Set tooltips
-var tip = d3.tip()
-            .attr('class', 'd3-tip')
-            .offset([-10, 0])
-            .html(function(d) {
-              let exchageRate = '';
 
-              if (d.exchangeRate) {
-                exchageRate = "<span class='details'><i class='fas fa-sync-alt'></i>       " + format(d.exchangeRate) + "</span>"
-              } else {
-                exchageRate = "<span class='details' style='color:red;'>N/A</span>"
+<script>
+  Vue.component('exchange-map', {
+  data() {
+    return {
+      options: [{
+        value: 'USD',
+        label: '美元'
+      }, {
+        value: 'EUR',
+        label: '歐元',
+      }, {
+        value: 'JPY',
+        label: '日圓'
+      }, {
+        value: 'KRW',
+        label: '韓元'
+      }, {
+        value: 'TWD',
+        label: '台幣'
+      },{
+        value: 'CNY',
+        label: '人民幣'
+      },{
+        value: 'ZAR',
+        label: '南非幣'
+      }],
+      baseValue: '',
+      exchangeRateUrl: 'https://api.exchangeratesapi.io/latest',
+      rateBase: '',
+      populationById: {}, // 人口數
+      ratesObj: {}, // 匯率
+      ratesBast: '' // 匯率基準 
+    }
+  },
+  mounted() {
+    var format = d3.format(",");
+    // Set tooltips
+    this.tip = d3.tip()
+                .attr('class', 'd3-tip')
+                .offset([-10, 0])
+                .html(function(d) {
+                  let exchageRate = '';
+
+                  if (d.exchangeRate) {
+                    exchageRate = "<span class='details'><i class='fas fa-sync-alt'></i>       " + format(d.exchangeRate) + "</span>"
+                  } else {
+                    exchageRate = "<span class='details' style='color:red;'>N/A</span>"
+                  }
+                  
+                  return "<strong>Country: </strong><span class='details'><i class='fa fa-flag'></i>    " + d.properties.name
+                    + "<br></span>" + "<strong>Population: </strong><span class='details'><i class='fas fa-male'></i>    " + format(d.population)
+                    + "<br></span>" + "<strong>Foreign Exchange Rates: </strong><span class='details'>" + exchageRate
+                    +"</span>";
+                });
+
+    this.margin = {top: 0, right: 0, bottom: 0, left: 0},
+                width = 1800 - this.margin.left - this.margin.right,
+                height = 800 - this.margin.top - this.margin.bottom;
+
+    // 顏色級距 d3-scale
+    this.color = d3.scaleThreshold()
+        .domain([10000,100000,500000,1000000,5000000,10000000,50000000,100000000,500000000,1500000000])
+        .range(["rgb(247,251,255)", "rgb(222,235,247)", "rgb(198,219,239)", "rgb(158,202,225)", "rgb(107,174,214)", "rgb(66,146,198)","rgb(33,113,181)","rgb(8,81,156)","rgb(8,48,107)","rgb(3,19,43)"]);
+
+    this.svg = d3.select("body")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append('g')
+                .attr('class', 'map');
+    
+    // 2. projections: functions that convert from latitude/longitude co-ordinates to x & y co-ordinates
+    this.projection = d3.geoMercator()
+                       .scale(130)
+                       .translate( [width / 2, height / 1.5]);
+    
+    
+    console.log(this.projection)
+
+    // 3. Geographic path generators
+    this.geoGenerator = d3.geoPath().projection(this.projection);
+
+    this.svg.call(this.tip);
+
+    this.ready();
+    
+  },
+  methods: {
+    ready: function () {
+      queue()
+        .defer(d3.json, "world_countries.json")
+        .defer(d3.tsv, "world_population.tsv")
+        .await(this.api);
+    },
+    api: function (error, data, population) {
+      let vm = this;
+      let tip = vm.tip;
+      let svg = vm.svg;
+      let geoGenerator = vm.geoGenerator;
+      let exchangeRateUrl = vm.exchangeRateUrl
+      let baseValue = vm.baseValue;
+
+      console.log(baseValue)
+
+      if (baseValue) {
+        exchangeRateUrl = exchangeRateUrl + "?base=" + baseValue;
+      }
+
+      axios.get(exchangeRateUrl)
+          .then(
+              response => {
+                vm.ratesObj = response.data.rates
+                vm.ratesBase = response.data.base
+                }
+          ).then(function () {
+              population.forEach(function(d) { vm.populationById[d.id] = +d.population; });
+              data.features.forEach(function(d) { d.population = vm.populationById[d.id] });
+              // set the rate of exchange
+              if (exchangeRateUrl) {
+                data.features.forEach(function (d) {
+                  if (vm.ratesBase === d.currencyCode) {
+                    d.exchangeRate = 1;
+                  } else {
+                    d.exchangeRate = vm.ratesObj[d.currencyCode]
+                  }
+                });
               }
               
-              console.log(d)
-              return "<strong>Country: </strong><span class='details'><i class='fa fa-flag'></i>    " + d.properties.name
-                + "<br></span>" + "<strong>Population: </strong><span class='details'><i class='fas fa-male'></i>    " + format(d.population)
-                + "<br></span>" + "<strong>Foreign Exchange Rates: </strong><span class='details'>" + exchageRate
-                +"</span>";
-            })
-
-var margin = {top: 0, right: 0, bottom: 0, left: 0},
-            width = 1800 - margin.left - margin.right,
-            height = 800 - margin.top - margin.bottom;
-
-var color = d3.scaleThreshold()
-    .domain([10000,100000,500000,1000000,5000000,10000000,50000000,100000000,500000000,1500000000])
-    .range(["rgb(247,251,255)", "rgb(222,235,247)", "rgb(198,219,239)", "rgb(158,202,225)", "rgb(107,174,214)", "rgb(66,146,198)","rgb(33,113,181)","rgb(8,81,156)","rgb(8,48,107)","rgb(3,19,43)"]);
-
-var path = d3.geoPath();
-
-var svg = d3.select("body")
-            .append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .append('g')
-            .attr('class', 'map');
-
-var projection = d3.geoMercator()
-                   .scale(130)
-                   .translate( [width / 2, height / 1.5]);
-
-var path = d3.geoPath().projection(projection);
-
-svg.call(tip);
-
-
-
-var ExchangeRateUrl = 'https://api.exchangeratesapi.io/latest';
-var base = '';
-
-
-
-queue()
-    .defer(d3.json, "world_countries.json")
-    .defer(d3.tsv, "world_population.tsv")
-    .await(ready);
-
-
-var populationById = {}; // 人口數
-var ratesObj= {}; // 匯率
-var ratesBast = '' // 匯率基準 
-function ready(error, data, population) {
-
-  axios.get(ExchangeRateUrl)
-       .then(
-          response => {
-              ratesObj = response.data.rates
-              ratesBast = response.data.base
-            }
-      ).then(function () {
-          population.forEach(function(d) { populationById[d.id] = +d.population; });
-          data.features.forEach(function(d) { d.population = populationById[d.id] });
-          // set the rate of exchange
-          if (url) {
-            data.features.forEach(function (d) {
-              if (ratesBast === d.currencyCode) {
-                d.exchangeRate = 1;
-              } else {
-                d.exchangeRate = ratesObj[d.currencyCode]
-              }
-            });
-          }
-          
-      }).then(function name(params) {
-        svg.append("g")
-            .attr("class", "countries")
-            .selectAll("path")
-            .data(data.features)
-            .enter().append("path")
-            .attr("d", path)
-            .style("fill", function(d) { return color(populationById[d.id]); })
-            .style('stroke', 'white')
-            .style('stroke-width', 1.5)
-            .style("opacity",0.8)
-          // tooltips
-            .style("stroke","white")
-            .style('stroke-width', 0.3)
-            .on('mouseover',function(d){
-              tip.show(d);
-
-              d3.select(this)
-                .style("opacity", 1)
+          }).then(function name(params) {
+            svg.append("g")
+                .attr("class", "countries")
+                .selectAll("path")
+                .data(data.features)
+                .enter().append("path")
+                // Create path elements and update the d attribute using the geo generator
+                .attr("d", geoGenerator)
+                .style("fill", function(d) { return vm.color(vm.populationById[d.id]); })
+                .style('stroke', 'white')
+                .style('stroke-width', 1.5)
+                .style("opacity",0.8)
+              // tooltips
                 .style("stroke","white")
-                .style("stroke-width",3);
-            })
-            .on('mouseout', function(d){
-              tip.hide(d);
+                .style('stroke-width', 0.3)
+                .on('mouseover',function(d){
+                  tip.show(d);
 
-              d3.select(this)
-                .style("opacity", 0.8)
-                .style("stroke","white")
-                .style("stroke-width",0.3);
-            });
+                  d3.select(this)
+                    .style("opacity", 1)
+                    .style("stroke","white")
+                    .style("stroke-width",3);
+                })
+                .on('mouseout', function(d){
+                  tip.hide(d);
 
-      svg.append("path")
-          .datum(topojson.mesh(data.features, function(a, b) { return a.id !== b.id; }))
-          // .datum(topojson.mesh(data.features, function(a, b) { return a !== b; }))
-          .attr("class", "names")
-          .attr("d", path);
-      }).catch(function (error) { // request fail
-          console.log(error);
-          alert(error);
-      });
-}
+                  d3.select(this)
+                    .style("opacity", 0.8)
+                    .style("stroke","white")
+                    .style("stroke-width",0.3);
+                });
 
-var Main = {
-    data() {
-      return {
-        options: [{
-          value: 'USD',
-          label: '美元'
-        }, {
-          value: 'EUR',
-          label: '歐元',
-        }, {
-          value: 'JPY',
-          label: '日圓'
-        }, {
-          value: 'KRW',
-          label: '韓元'
-        }, {
-          value: 'TWD',
-          label: '台幣'
-        },{
-          value: 'CNY',
-          label: '人民幣'
-        },{
-          value: 'ZAR',
-          label: '南非幣'
-        }],
-        value: ''
-      }
-    },
-  }
-var Ctor = Vue.extend(Main)
-new Ctor().$mount('#app')
+          svg.append("path")
+              .datum(topojson.mesh(data.features, function(a, b) { return a.id !== b.id; }))
+              // .datum(topojson.mesh(data.features, function(a, b) { return a !== b; }))
+              .attr("class", "names")
+              .attr("d", geoGenerator);
 
+          }).catch(function (error) { // request fail
+              console.log(error);
+              alert(error);
+          });
+    }
+  },
+  template: `
+  <div>
+  <form>
+   <select class="form-control" v-model="baseValue" placeholder="請選擇匯率基準" @change='ready'>
+      <option v-for="item in options"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value">
+      </option>
+    </select> 
+  </form>
+  </div>
+  `
+});
+
+
+new Vue({
+  el: '#app'
+});
 </script>
+
+
 </body>
 </html>
