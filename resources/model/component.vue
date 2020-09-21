@@ -1,117 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<meta charset="utf-8">
-<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous"/>
-<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
-<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-<style>
-
-  .names {
-  fill: none;
-  stroke: #fff;
-  stroke-linejoin: round;
-  }
-
-    /* Tooltip CSS */
-    .d3-tip {
-    line-height: 1.5;
-    font-weight: 400;
-    font-family:"avenir next", Arial, sans-serif;
-    padding: 6px;
-    background: rgba(0, 0, 0, 0.6);
-    color: #FFA500;
-    border-radius: 1px;
-    pointer-events: none;
-    }
-
-    /* Creates a small triangle extender for the tooltip */
-    .d3-tip:after {      
-      box-sizing: border-box;
-      display: inline;
-      font-size: 8px;
-      width: 100%;
-      line-height: 1.5;
-      color: rgba(0, 0, 0, 0.6);
-      position: absolute;
-      pointer-events: none;
-      
-    }
-
-    /* Northward tooltips */
-    .d3-tip.n:after {
-      content: "\25BC";
-      margin: -1px 0 0 0;
-      top: 100%;
-      left: 0;
-      text-align: center;
-    }
-
-    /* Eastward tooltips */
-    .d3-tip.e:after {
-      content: "\25C0";
-      margin: -4px 0 0 0;
-      top: 50%;
-      left: -8px;
-    }
-
-    /* Southward tooltips */
-    .d3-tip.s:after {
-      content: "\25B2";
-      margin: 0 0 1px 0;
-      top: -8px;
-      left: 0;
-      text-align: center;
-    }
-
-    /* Westward tooltips */
-    .d3-tip.w:after {
-      content: "\25B6";
-      margin: -4px 0 0 -1px;
-      top: 50%;
-      left: 100%;
-    }
-
-/*    text{
-      pointer-events:none;
-    }*/
-
-    .details{
-      color:white;
-    }
-
-</style>
-<body>
-
-  <div id="app">
-    <!-- <template>
-      <el-select v-model="baseValue" placeholder="請選擇匯率基準" @change='ready'>
-        <el-option
-          v-for="item in options"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-          :label="item.value">
-        </el-option>
-      </el-select>
-    </template> -->
-    <exchange-map map-color="red"></exchange-map>
-    <exchange-map map-color="blue"></exchange-map>
-    <exchange-map map-color="green"></exchange-map>
-
-
-  </div>
-
-
-<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-<script src="https://unpkg.com/element-ui/lib/index.js"></script>
-<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-<script src="https://d3js.org/d3.v4.min.js"></script>
-<script src="https://d3js.org/queue.v1.min.js"></script>
-<script src="https://d3js.org/topojson.v1.min.js"></script>
-<script src="./js/d3-tip.js"></script>
+<template>
+    <form :class='mapColor'>
+    <div class="form-group row mt-5 ml-5">
+      <div class="col-sm-5">
+        <select class="form-control shadow-lg" v-model="baseValue" placeholder="請選擇匯率基準" @change='ready'>
+          <option disabled selected>請選擇匯率基準</option>
+          <option v-for="item in options"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value">
+          </option>
+        </select> 
+      </div>
+    </div>
+  </form>
+</template>
 
 <script>
-  Vue.component('exchange-map', {
+module.exports = {
   props: ['mapColor'],
   data() {
     return {
@@ -200,6 +105,7 @@
         .await(this.api);
     },
     api: function (error, data, population) {
+        console.log("data",data)
       let vm = this;
       let tip = vm.tip;
       let svg = vm.svg;
@@ -218,7 +124,7 @@
       color = d3.scaleThreshold()
         .domain([10000,100000,500000,1000000,5000000,10000000,50000000,100000000,500000000,1500000000])
         .range(["rgb(249,224,234)", "rgb(249,224,232)", "rgb(208,52,104)", "rgb(185,31,82)", "rgb(216,88,131)", "rgb(203,23,125)","rgb(236,28,76)","rgb(198,18,60)","rgb(239,102,134)","rgb(141,26,53)"]);
-    } else {
+    } else if (mapColor == 'green') {
       color = d3.scaleThreshold()
         .domain([10000,100000,500000,1000000,5000000,10000000,50000000,100000000,500000000,1500000000])
         .range(["rgb(183,250,170)", "rgb(105,186,89)", "rgb(76,168,58)", "rgb(44,158,21)", "rgb(34,125,16)", "rgb(26,92,13)","rgb(6,92,18)","rgb(17,77,25)","rgb(9,70,17)","rgb(4,43,9)"]);
@@ -296,31 +202,85 @@
               alert(error);
           });
     }
-  },
-  template: `
-  <form :class='mapColor'>
-    <div class="form-group row mt-5 ml-5">
-      <div class="col-sm-5">
-        <select class="form-control shadow-lg" v-model="baseValue" placeholder="請選擇匯率基準" @change='ready'>
-          <option disabled selected>請選擇匯率基準</option>
-          <option v-for="item in options"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value">
-          </option>
-        </select> 
-      </div>
-    </div>
-  </form>
-  `
-});
-
-
-new Vue({
-  el: '#app'
-});
+  }
+}
 </script>
 
 
-</body>
-</html>
+
+
+
+<style>
+  .names {
+  fill: none;
+  stroke: #fff;
+  stroke-linejoin: round;
+  }
+
+    /* Tooltip CSS */
+    .d3-tip {
+    line-height: 1.5;
+    font-weight: 400;
+    font-family:"avenir next", Arial, sans-serif;
+    padding: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #FFA500;
+    border-radius: 1px;
+    pointer-events: none;
+    }
+
+    /* Creates a small triangle extender for the tooltip */
+    .d3-tip:after {      
+      box-sizing: border-box;
+      display: inline;
+      font-size: 8px;
+      width: 100%;
+      line-height: 1.5;
+      color: rgba(0, 0, 0, 0.6);
+      position: absolute;
+      pointer-events: none;
+      
+    }
+
+    /* Northward tooltips */
+    .d3-tip.n:after {
+      content: "\25BC";
+      margin: -1px 0 0 0;
+      top: 100%;
+      left: 0;
+      text-align: center;
+    }
+
+    /* Eastward tooltips */
+    .d3-tip.e:after {
+      content: "\25C0";
+      margin: -4px 0 0 0;
+      top: 50%;
+      left: -8px;
+    }
+
+    /* Southward tooltips */
+    .d3-tip.s:after {
+      content: "\25B2";
+      margin: 0 0 1px 0;
+      top: -8px;
+      left: 0;
+      text-align: center;
+    }
+
+    /* Westward tooltips */
+    .d3-tip.w:after {
+      content: "\25B6";
+      margin: -4px 0 0 -1px;
+      top: 50%;
+      left: 100%;
+    }
+
+/*    text{
+      pointer-events:none;
+    }*/
+
+    .details{
+      color:white;
+    }
+</style>
